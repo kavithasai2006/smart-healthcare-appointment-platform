@@ -25,6 +25,12 @@ const Header = () => {
           Home
         </NavLink>
         <NavLink 
+          to="/hospitals" 
+          className={({ isActive }) => (isActive ? 'active' : '')}
+        >
+          Hospitals
+        </NavLink>
+        <NavLink 
           to="/doctors" 
           className={({ isActive }) => (isActive ? 'active' : '')}
         >
@@ -34,8 +40,16 @@ const Header = () => {
           to="/appointments" 
           className={({ isActive }) => (isActive ? 'active' : '')}
         >
-          Appointments
+          My Appointments
         </NavLink>
+        {user && user.role === 'admin' && (
+          <NavLink 
+            to="/admin" 
+            className={({ isActive }) => (isActive ? 'active admin-link' : 'admin-link')}
+          >
+            ⚙️ Admin
+          </NavLink>
+        )}
       </nav>
 
       <div className="auth-section">

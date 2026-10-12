@@ -13,14 +13,14 @@ const Home = () => {
             Your Health, <span>Our Priority</span>
           </h1>
           <p>
-            Find the right doctor and book your healthcare appointment quickly and
-            easily.
+            Find leading doctors across top hospitals in Andhra Pradesh and book your
+            healthcare appointment quickly and easily.
           </p>
           <button 
             className="primary-btn" 
             onClick={() => navigate('/doctors')}
           >
-            Book an Appointment
+            Find Doctors & Hospitals (AP)
           </button>
         </div>
         <div className="hero-image" role="img" aria-label="Healthcare illustration">
@@ -33,21 +33,21 @@ const Home = () => {
         <h2>Why Choose SmartCare?</h2>
         <div className="feature-container">
           <div className="feature-card">
-            <div className="feature-icon">👨‍⚕️</div>
-            <h3>Expert Doctors</h3>
-            <p>Connect with experienced healthcare professionals.</p>
+            <div className="feature-icon">🏥</div>
+            <h3>Top AP Hospitals</h3>
+            <p>Apollo, Manipal, KIMS, Ramesh & Care Hospitals across Andhra Pradesh.</p>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-icon">📍</div>
+            <h3>Location & Hospital Search</h3>
+            <p>Effortlessly filter by AP city, hospital, specialization, and doctor.</p>
           </div>
 
           <div className="feature-card">
             <div className="feature-icon">📅</div>
-            <h3>Easy Booking</h3>
-            <p>Book appointments quickly from your device.</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">🔒</div>
-            <h3>Secure Platform</h3>
-            <p>Your appointment information is stored securely.</p>
+            <h3>Instant Booking</h3>
+            <p>Select your date and time slot with instant confirmed scheduling.</p>
           </div>
         </div>
       </section>

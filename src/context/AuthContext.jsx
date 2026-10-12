@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authApi } from '../services/api';
 
 // Create Authentication Context
 export const AuthContext = createContext();
@@ -7,52 +8,39 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Load active user from LocalStorage on initial mount
+  // Load active user from LocalStorage / verify token on mount
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('smartcareUser');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    const initializeAuth = async () => {
+      try {
+        const storedUser = localStorage.getItem('smartcareUser');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
+
+        // Verify with backend if token exists
+        const token = localStorage.getItem('smartcareToken');
+        if (token) {
+          const profile = await authApi.getMe();
+          if (profile) {
+            setUser(profile);
+            localStorage.setItem('smartcareUser', JSON.stringify(profile));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading stored user:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading stored user:', error);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    initializeAuth();
   }, []);
 
   // Register a new user
-  const register = (fullName, email, password) => {
+  const register = async (fullName, email, password, phone = '') => {
     try {
-      const existingUsers = JSON.parse(localStorage.getItem('smartcareUsers')) || [];
-
-      // Check if email already registered
-      const userExists = existingUsers.some(
-        (u) => u.email.toLowerCase() === email.toLowerCase().trim()
-      );
-
-      if (userExists) {
-        return {
-          success: false,
-          message: 'An account with this email already exists.',
-        };
-      }
-
-      // Add new user
-      const newUser = {
-        id: Date.now(),
-        fullName: fullName.trim(),
-        email: email.toLowerCase().trim(),
-        password: password, // Note: For academic/demonstration frontend project only
-      };
-
-      existingUsers.push(newUser);
-      localStorage.setItem('smartcareUsers', JSON.stringify(existingUsers));
-
-      return {
-        success: true,
-        message: 'Registration successful! Please login.',
-      };
+      const res = await authApi.register(fullName, email, password, phone);
+      return res;
     } catch (error) {
       console.error('Registration error:', error);
       return {
@@ -63,36 +51,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Login existing user
-  const login = (email, password) => {
+  const login = async (email, password) => {
     try {
-      const existingUsers = JSON.parse(localStorage.getItem('smartcareUsers')) || [];
-      const normalizedEmail = email.toLowerCase().trim();
-
-      const matchedUser = existingUsers.find(
-        (u) => u.email === normalizedEmail && u.password === password
-      );
-
-      if (!matchedUser) {
-        return {
-          success: false,
-          message: 'Invalid email or password.',
-        };
+      const res = await authApi.login(email, password);
+      if (res.success && res.user) {
+        setUser(res.user);
       }
-
-      // Save logged in user info (excluding password)
-      const sessionUser = {
-        id: matchedUser.id,
-        fullName: matchedUser.fullName,
-        email: matchedUser.email,
-      };
-
-      localStorage.setItem('smartcareUser', JSON.stringify(sessionUser));
-      setUser(sessionUser);
-
-      return {
-        success: true,
-        message: 'Login successful!',
-      };
+      return res;
     } catch (error) {
       console.error('Login error:', error);
       return {
@@ -104,7 +69,7 @@ export const AuthProvider = ({ children }) => {
 
   // Logout user
   const logout = () => {
-    localStorage.removeItem('smartcareUser');
+    authApi.logout();
     setUser(null);
   };
 

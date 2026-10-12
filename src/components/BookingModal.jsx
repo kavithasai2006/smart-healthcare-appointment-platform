@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { appointmentApi } from '../services/api';
 
 const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Today's date in YYYY-MM-DD for min date constraint
+  const todayStr = new Date().toISOString().split('T')[0];
 
   // Controlled form state
   const [formData, setFormData] = useState({
@@ -12,15 +16,64 @@ const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
     age: '',
     gender: '',
     email: user ? user.email : '',
-    phone: '',
+    phone: user ? (user.phone || '') : '',
     height: '',
     weight: '',
     bloodPressure: '',
-    date: '',
+    reason: 'General Consultation',
+    date: todayStr,
     time: '',
   });
 
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookedSlotsForDate, setBookedSlotsForDate] = useState([]);
+
+  // Available slots for doctor
+  const availableSlots = doctor?.timeSlots || [
+    '09:00 AM',
+    '10:00 AM',
+    '11:00 AM',
+    '02:00 PM',
+    '03:00 PM',
+    '04:00 PM',
+  ];
+
+  // Pre-fill user data when modal opens
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        patientName: user.fullName || prev.patientName,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+      }));
+    }
+  }, [user]);
+
+  // Check already booked slots from backend for this doctor on the selected date
+  useEffect(() => {
+    if (!doctor || !formData.date) return;
+
+    let isMounted = true;
+    const fetchBookedSlots = async () => {
+      try {
+        const slots = await appointmentApi.getBookedSlots(doctor.name, formData.date);
+        if (isMounted) {
+          setBookedSlotsForDate(slots || []);
+        }
+      } catch {
+        if (isMounted) {
+          setBookedSlotsForDate([]);
+        }
+      }
+    };
+
+    fetchBookedSlots();
+    return () => {
+      isMounted = false;
+    };
+  }, [doctor, formData.date]);
 
   if (!isOpen || !doctor) return null;
 
@@ -31,23 +84,24 @@ const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
       ...prev,
       [name]: value,
     }));
+    setError('');
   };
 
   // Close modal when clicking on the dark backdrop
   const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !isSubmitting) {
       onClose();
     }
   };
 
   // Form submission & validation
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     // Extra validation checks
     const phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(formData.phone)) {
+    if (!phoneRegex.test(formData.phone.trim())) {
       setError('Phone number must be exactly 10 digits (numbers only).');
       return;
     }
@@ -75,45 +129,71 @@ const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
       return;
     }
 
-    if (!formData.time) {
-      setError('Please select an appointment time.');
+    if (!formData.date) {
+      setError('Please select an appointment date.');
       return;
     }
 
-    // Create appointment object
-    const newAppointment = {
-      id: Date.now(),
+    if (formData.date < todayStr) {
+      setError('Cannot book appointments on past dates.');
+      return;
+    }
+
+    if (!formData.time) {
+      setError('Please select an appointment time slot.');
+      return;
+    }
+
+    // Check if slot is already in booked list
+    if (bookedSlotsForDate.includes(formData.time)) {
+      setError(`The slot (${formData.time}) on ${formData.date} is already booked. Please choose another time.`);
+      return;
+    }
+
+    // Build payload
+    const appointmentPayload = {
+      doctorId: doctor.id || doctor._id,
+      hospitalId: doctor.hospitalId,
+      locationId: doctor.locationId,
       doctor: doctor.name,
       specialization: doctor.specialization,
+      hospital: doctor.hospital || 'Apollo Hospitals',
+      location: doctor.location ? `${doctor.location}, AP` : 'Andhra Pradesh',
+      fee: doctor.fee || '₹600',
       patientName: formData.patientName.trim(),
+      patientPhone: formData.phone.trim(),
+      patientEmail: formData.email.trim(),
       age: ageNum,
       gender: formData.gender,
-      email: formData.email.trim(),
-      phone: formData.phone.trim(),
       height: heightNum,
       weight: weightNum,
       bloodPressure: formData.bloodPressure.trim(),
+      reason: formData.reason.trim(),
       date: formData.date,
       time: formData.time,
+      status: 'Confirmed',
     };
 
+    setIsSubmitting(true);
     try {
-      const existingAppointments =
-        JSON.parse(localStorage.getItem('appointments')) || [];
-      existingAppointments.push(newAppointment);
-      localStorage.setItem('appointments', JSON.stringify(existingAppointments));
+      const res = await appointmentApi.createAppointment(appointmentPayload);
 
-      alert('Appointment booked successfully!');
+      if (res.success) {
+        alert(`Appointment confirmed at ${appointmentPayload.hospital}! Stored in database.`);
 
-      if (onBookingSuccess) {
-        onBookingSuccess();
+        if (onBookingSuccess) {
+          onBookingSuccess();
+        }
+
+        onClose();
+        navigate('/appointments');
+      } else {
+        setError(res.message || 'Failed to book appointment. Please try again.');
       }
-
-      onClose();
-      navigate('/appointments');
-    } catch (err) {
-      console.error('Error saving appointment:', err);
-      setError('Failed to book appointment. Please try again.');
+    } catch {
+      setError('An error occurred while booking. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -125,9 +205,21 @@ const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
         </span>
 
         <h2>Book Appointment</h2>
-        <p id="selectedDoctor">
-          {doctor.name} - {doctor.specialization}
-        </p>
+
+        {/* Selected Doctor, Hospital & Location Info Banner */}
+        <div className="modal-doctor-summary">
+          <div className="modal-doctor-header">
+            <div>
+              <h3>{doctor.name}</h3>
+              <p className="modal-doctor-spec">{doctor.specialization}</p>
+            </div>
+            <div className="modal-doctor-fee">{doctor.fee || '₹600'}</div>
+          </div>
+          <div className="modal-hospital-info">
+            {doctor.hospital && <span>🏥 <strong>Hospital:</strong> {doctor.hospital}</span>}
+            {doctor.location && <span>📍 <strong>Location:</strong> {doctor.location}, Andhra Pradesh</span>}
+          </div>
+        </div>
 
         {error && <div className="form-error-alert">{error}</div>}
 
@@ -140,7 +232,7 @@ const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
               name="patientName"
               value={formData.patientName}
               onChange={handleChange}
-              placeholder="Enter your name"
+              placeholder="Enter patient full name"
               required
             />
           </div>
@@ -240,17 +332,31 @@ const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
             </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="bloodPressure">Blood Pressure</label>
-            <input
-              type="text"
-              id="bloodPressure"
-              name="bloodPressure"
-              value={formData.bloodPressure}
-              onChange={handleChange}
-              placeholder="e.g. 120/80 mmHg"
-              required
-            />
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="bloodPressure">Blood Pressure</label>
+              <input
+                type="text"
+                id="bloodPressure"
+                name="bloodPressure"
+                value={formData.bloodPressure}
+                onChange={handleChange}
+                placeholder="e.g. 120/80 mmHg"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="reason">Consultation Reason</label>
+              <input
+                type="text"
+                id="reason"
+                name="reason"
+                value={formData.reason}
+                onChange={handleChange}
+                placeholder="e.g. Health Checkup"
+              />
+            </div>
           </div>
 
           <div className="form-row">
@@ -260,6 +366,7 @@ const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
                 type="date"
                 id="date"
                 name="date"
+                min={todayStr}
                 value={formData.date}
                 onChange={handleChange}
                 required
@@ -275,19 +382,28 @@ const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
                 onChange={handleChange}
                 required
               >
-                <option value="">Select Time</option>
-                <option value="09:00 AM">09:00 AM</option>
-                <option value="10:00 AM">10:00 AM</option>
-                <option value="11:00 AM">11:00 AM</option>
-                <option value="02:00 PM">02:00 PM</option>
-                <option value="03:00 PM">03:00 PM</option>
-                <option value="04:00 PM">04:00 PM</option>
+                <option value="">Select Time Slot</option>
+                {availableSlots.map((slot) => {
+                  const isBooked = bookedSlotsForDate.includes(slot);
+                  return (
+                    <option key={slot} value={slot} disabled={isBooked}>
+                      {slot} {isBooked ? '(Already Booked)' : '(Available)'}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
 
-          <button type="submit" className="primary-btn full-width" style={{ marginTop: '15px' }}>
-            Confirm Appointment
+          <button
+            type="submit"
+            className="primary-btn full-width"
+            style={{ marginTop: '15px' }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting
+              ? 'Confirming with Database...'
+              : `Confirm Appointment at ${doctor.hospital || 'Hospital'}`}
           </button>
         </form>
       </div>

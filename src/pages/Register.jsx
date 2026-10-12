@@ -6,12 +6,14 @@ const Register = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
   });
 
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -25,16 +27,16 @@ const Register = () => {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
 
-    const { fullName, email, password, confirmPassword } = formData;
+    const { fullName, email, phone, password, confirmPassword } = formData;
 
-    // Validation 1: All fields required
+    // Validation 1: Required fields
     if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
-      setError('All fields are required.');
+      setError('All fields except phone are required.');
       return;
     }
 
@@ -51,21 +53,27 @@ const Register = () => {
       return;
     }
 
-    // Validation 4: Password and confirm password match
+    // Validation 4: Passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
 
-    // Attempt registration via AuthContext
-    const result = register(fullName, email, password);
+    setIsLoading(true);
+    try {
+      const result = await register(fullName, email, password, phone);
 
-    if (result.success) {
-      setSuccessMsg(result.message);
-      alert(result.message);
-      navigate('/login');
-    } else {
-      setError(result.message);
+      if (result.success) {
+        setSuccessMsg(result.message);
+        alert(result.message);
+        navigate('/login');
+      } else {
+        setError(result.message);
+      }
+    } catch {
+      setError('An error occurred during registration. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -73,7 +81,7 @@ const Register = () => {
     <div className="auth-page">
       <div className="auth-card">
         <h2>Create an Account</h2>
-        <p className="auth-subtitle">Register to book and manage doctor appointments</p>
+        <p className="auth-subtitle">Register to book and manage doctor appointments in Andhra Pradesh</p>
 
         {error && <div className="form-error-alert">{error}</div>}
         {successMsg && <div className="form-success-alert">{successMsg}</div>}
@@ -106,6 +114,18 @@ const Register = () => {
           </div>
 
           <div className="form-group">
+            <label htmlFor="phone">Phone Number (Optional)</label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="e.g. 9876543210"
+            />
+          </div>
+
+          <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
               type="password"
@@ -131,8 +151,12 @@ const Register = () => {
             />
           </div>
 
-          <button type="submit" className="primary-btn full-width auth-submit-btn">
-            Register
+          <button
+            type="submit"
+            className="primary-btn full-width auth-submit-btn"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Creating Account...' : 'Register'}
           </button>
         </form>
 

@@ -10,6 +10,7 @@ const Login = () => {
 
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const Login = () => {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
@@ -35,14 +36,21 @@ const Login = () => {
       return;
     }
 
-    const result = login(email, password);
+    setIsLoading(true);
+    try {
+      const result = await login(email, password);
 
-    if (result.success) {
-      setSuccessMsg(result.message);
-      alert(result.message);
-      navigate('/');
-    } else {
-      setError(result.message);
+      if (result.success) {
+        setSuccessMsg(result.message);
+        alert(result.message);
+        navigate('/');
+      } else {
+        setError(result.message);
+      }
+    } catch {
+      setError('An error occurred during login. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -82,8 +90,12 @@ const Login = () => {
             />
           </div>
 
-          <button type="submit" className="primary-btn full-width auth-submit-btn">
-            Login
+          <button
+            type="submit"
+            className="primary-btn full-width auth-submit-btn"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 

@@ -42,6 +42,14 @@ const Header = () => {
         >
           My Appointments
         </NavLink>
+        {user && (
+          <NavLink 
+            to="/profile" 
+            className={({ isActive }) => (isActive ? 'active' : '')}
+          >
+            My Profile
+          </NavLink>
+        )}
         {user && user.role === 'admin' && (
           <NavLink 
             to="/admin" 
@@ -55,8 +63,26 @@ const Header = () => {
       <div className="auth-section">
         {user ? (
           <div className="user-logged-in">
-            <span className="user-greeting">Hi, {user.fullName}</span>
-            <button className="logout-btn" onClick={handleLogout}>
+            <Link to="/profile" className="user-profile-header-link" title="Open My Profile">
+              <div className="header-avatar-circle">
+                {user.avatar ? (
+                  user.avatar.length <= 4 ? (
+                    <span className="avatar-emoji">{user.avatar}</span>
+                  ) : (
+                    <img src={user.avatar} alt="Profile" className="avatar-img" />
+                  )
+                ) : (
+                  <span className="avatar-initials">
+                    {user.fullName ? user.fullName.charAt(0).toUpperCase() : '👤'}
+                  </span>
+                )}
+              </div>
+              <div className="header-user-meta">
+                <span className="user-greeting">Hi, {user.fullName ? user.fullName.split(' ')[0] : 'Patient'}</span>
+                <span className="header-role-pill">Patient</span>
+              </div>
+            </Link>
+            <button className="logout-btn" onClick={handleLogout} title="Sign Out">
               Logout
             </button>
           </div>

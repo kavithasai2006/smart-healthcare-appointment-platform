@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { specializations } from '../data/doctors';
 import DoctorCard from '../components/DoctorCard';
 import BookingModal from '../components/BookingModal';
@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { locationApi, hospitalApi, doctorApi } from '../services/api';
 
 const Doctors = () => {
+  const [searchParams] = useSearchParams();
   const [locationsList, setLocationsList] = useState([]);
   const [hospitalsList, setHospitalsList] = useState([]);
   const [availableSpecializations, setAvailableSpecializations] = useState(specializations);
@@ -15,9 +16,10 @@ const Doctors = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
 
-  const [selectedLocation, setSelectedLocation] = useState('');
-  const [selectedHospital, setSelectedHospital] = useState('');
-  const [selectedSpecialization, setSelectedSpecialization] = useState('');
+  // Initialize filters (supporting URL search parameters if provided)
+  const [selectedLocation, setSelectedLocation] = useState(searchParams.get('location') || '');
+  const [selectedHospital, setSelectedHospital] = useState(searchParams.get('hospital') || '');
+  const [selectedSpecialization, setSelectedSpecialization] = useState(searchParams.get('specialization') || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,7 +50,7 @@ const Doctors = () => {
     };
   }, []);
 
-  // Update available hospitals from Express API when selectedLocation changes
+  // Update available hospitals from Express API whenever selectedLocation changes
   useEffect(() => {
     let isMounted = true;
     const fetchHospitals = async () => {
@@ -78,6 +80,11 @@ const Doctors = () => {
   useEffect(() => {
     let isMounted = true;
     const loadSpecializations = async () => {
+      if (!selectedLocation) {
+        setAvailableSpecializations(specializations);
+        return;
+      }
+
       try {
         const specs = await doctorApi.getSpecializations({
           location: selectedLocation,
@@ -104,6 +111,14 @@ const Doctors = () => {
 
   // Fetch doctors from Express API whenever filters change
   const fetchDoctors = async () => {
+    // Critical requirement: If no location is selected, do NOT dump all 2,538 doctors
+    if (!selectedLocation) {
+      setDoctorsList([]);
+      setIsLoading(false);
+      setApiError(null);
+      return;
+    }
+
     setIsLoading(true);
     setApiError(null);
     try {
@@ -139,11 +154,25 @@ const Doctors = () => {
     fetchDoctors();
   }, [selectedLocation, selectedHospital, selectedSpecialization, searchQuery]);
 
-  // Handle location change & reset hospital
+  // Handle location change & reset downstream hospital and specialization
   const handleLocationChange = (e) => {
     const loc = e.target.value;
     setSelectedLocation(loc);
-    setSelectedHospital(''); // Reset hospital when location changes
+    setSelectedHospital('');
+    setSelectedSpecialization('');
+  };
+
+  // Quick-select button handler
+  const handleSelectLocationQuick = (loc) => {
+    setSelectedLocation(loc);
+    setSelectedHospital('');
+    setSelectedSpecialization('');
+  };
+
+  // Handle hospital change & reset downstream specialization
+  const handleHospitalChange = (e) => {
+    setSelectedHospital(e.target.value);
+    setSelectedSpecialization('');
   };
 
   // Clear all filters
@@ -208,7 +237,7 @@ const Doctors = () => {
             <span className="step-label">Specialization</span>
           </div>
           <div className="step-arrow">→</div>
-          <div className={`step-item ${selectedDoctor ? 'completed' : 'active'}`}>
+          <div className={`step-item ${selectedDoctor ? 'completed' : selectedSpecialization || selectedHospital ? 'active' : ''}`}>
             <span className="step-number">4</span>
             <span className="step-label">Doctor & Booking</span>
           </div>
@@ -226,7 +255,7 @@ const Doctors = () => {
                 onChange={handleLocationChange}
                 className="filter-select"
               >
-                <option value="">All Locations (Andhra Pradesh)</option>
+                <option value="">-- Select an AP Location --</option>
                 {locationsList.map((loc) => (
                   <option key={loc} value={loc}>
                     {loc}
@@ -241,14 +270,14 @@ const Doctors = () => {
               <select
                 id="hospitalSelect"
                 value={selectedHospital}
-                onChange={(e) => setSelectedHospital(e.target.value)}
+                onChange={handleHospitalChange}
                 disabled={!selectedLocation}
                 className="filter-select"
               >
                 <option value="">
                   {selectedLocation
-                    ? 'All Hospitals in ' + selectedLocation
-                    : '← Select a Location first'}
+                    ? `All Hospitals in ${selectedLocation} (${hospitalsList.length} available)`
+                    : '← Select an AP Location first'}
                 </option>
                 {hospitalsList.map((hosp) => (
                   <option key={hosp} value={hosp}>
@@ -265,12 +294,15 @@ const Doctors = () => {
                 id="specSelect"
                 value={selectedSpecialization}
                 onChange={(e) => setSelectedSpecialization(e.target.value)}
+                disabled={!selectedLocation}
                 className="filter-select"
               >
                 <option value="">
-                  {selectedHospital
-                    ? `All Specializations at ${selectedHospital}`
-                    : 'All Specializations'}
+                  {!selectedLocation
+                    ? '← Select an AP Location first'
+                    : selectedHospital
+                    ? `All Specializations at ${selectedHospital} (${availableSpecializations.length} available)`
+                    : `All Specializations in ${selectedLocation}`}
                 </option>
                 {availableSpecializations.map((spec) => (
                   <option key={spec} value={spec}>
@@ -297,10 +329,16 @@ const Doctors = () => {
           {/* Active Filter Summary & Clear Button */}
           <div className="filter-actions-row">
             <span className="results-count">
-              Showing <strong>{filteredDoctors.length}</strong> doctor{filteredDoctors.length === 1 ? '' : 's'} available
-              {selectedSpecialization && ` in ${selectedSpecialization}`}
-              {selectedHospital && ` at ${selectedHospital}`}
-              {selectedLocation && ` in ${selectedLocation}`}
+              {!selectedLocation ? (
+                <>📍 Please select an Andhra Pradesh location to view available doctors.</>
+              ) : (
+                <>
+                  Showing <strong>{filteredDoctors.length}</strong> doctor{filteredDoctors.length === 1 ? '' : 's'} available
+                  {selectedSpecialization && ` in ${selectedSpecialization}`}
+                  {selectedHospital && ` at ${selectedHospital}`}
+                  {selectedLocation && ` in ${selectedLocation}`}
+                </>
+              )}
             </span>
             {isAnyFilterActive && (
               <button
@@ -314,7 +352,7 @@ const Doctors = () => {
           </div>
         </div>
 
-        {/* Doctor Grid, Loading Indicator, or Empty/Error State */}
+        {/* Doctor Grid, Loading Indicator, Guidance Prompt, or Empty State */}
         {isLoading ? (
           <div className="loading-box">
             <div className="loading-spinner"></div>
@@ -332,6 +370,30 @@ const Doctors = () => {
               Retry
             </button>
           </div>
+        ) : !selectedLocation ? (
+          /* Clear Guidance State before location is selected */
+          <div className="no-doctors-box select-location-prompt">
+            <div style={{ fontSize: '3.2rem', marginBottom: '14px' }}>📍</div>
+            <h3>Select an Andhra Pradesh Location to Begin</h3>
+            <p className="no-appointments" style={{ maxWidth: '580px', margin: '0 auto 18px', boxShadow: 'none', padding: '0' }}>
+              Choose your city or district in Andhra Pradesh from the dropdown above to discover verified multi-speciality hospitals and book consultations with specialist doctors.
+            </p>
+            {locationsList.length > 0 && (
+              <div className="quick-locations-row">
+                <span>Quick Select:</span>
+                {locationsList.slice(0, 7).map((loc) => (
+                  <button
+                    key={loc}
+                    type="button"
+                    className="quick-loc-chip"
+                    onClick={() => handleSelectLocationQuick(loc)}
+                  >
+                    📍 {loc}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         ) : filteredDoctors.length > 0 ? (
           <>
             {/* Status note when hospital has fewer than 5 matching doctors */}
@@ -344,7 +406,7 @@ const Doctors = () => {
             {/* Status note when multiple doctors are available for comparison */}
             {filteredDoctors.length >= 5 && (
               <div className="doctor-results-banner">
-                <span>✨ <strong>Multiple Specialists Available:</strong> Found {filteredDoctors.length} doctors. Compare their experience, consultation fees, and available time slots to choose your preferred doctor.</span>
+                <span>✨ <strong>Multiple Specialists Available:</strong> Found {filteredDoctors.length} doctors in {selectedHospital || selectedLocation}. Compare their experience, consultation fees, and available time slots to choose your preferred doctor.</span>
               </div>
             )}
 
@@ -374,7 +436,7 @@ const Doctors = () => {
                 style={{ marginTop: '15px' }}
                 onClick={handleResetFilters}
               >
-                Clear Filters & View All Doctors
+                Clear Filters & View All Doctors in {selectedLocation}
               </button>
             )}
           </div>

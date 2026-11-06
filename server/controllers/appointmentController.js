@@ -175,12 +175,44 @@ export const getUserAppointments = async (req, res) => {
         { user: userId },
         { patientEmail: email.toLowerCase().trim() },
       ],
-    }).sort({ createdAt: -1 });
+    })
+      .populate('hospital', 'name city address')
+      .populate('doctor', 'name specialization')
+      .populate('location', 'name state')
+      .sort({ createdAt: -1 });
+
+    const formatted = appointments.map((apt) => ({
+      _id: apt._id,
+      id: apt._id,
+      doctor: apt.doctorName || apt.doctor?.name || 'Specialist Doctor',
+      doctorName: apt.doctorName || apt.doctor?.name || 'Specialist Doctor',
+      specialization: apt.specialization || apt.doctor?.specialization || 'Specialist',
+      hospital: apt.hospitalName || apt.hospital?.name || 'Healthcare Center',
+      hospitalName: apt.hospitalName || apt.hospital?.name || 'Healthcare Center',
+      location: apt.locationName || apt.location?.name || 'Andhra Pradesh',
+      locationName: apt.locationName || apt.location?.name || 'Andhra Pradesh',
+      date: apt.appointmentDate,
+      appointmentDate: apt.appointmentDate,
+      time: apt.appointmentTime,
+      appointmentTime: apt.appointmentTime,
+      patientName: apt.patientName,
+      patientPhone: apt.patientPhone,
+      patientEmail: apt.patientEmail,
+      fee: apt.fee || '₹600',
+      reason: apt.reason || 'General Consultation',
+      age: apt.age,
+      gender: apt.gender,
+      height: apt.height,
+      weight: apt.weight,
+      bloodPressure: apt.bloodPressure,
+      status: apt.status || 'Confirmed',
+      createdAt: apt.createdAt,
+    }));
 
     return res.status(200).json({
       success: true,
-      count: appointments.length,
-      data: appointments,
+      count: formatted.length,
+      data: formatted,
     });
   } catch (error) {
     console.error('Error fetching appointments from MongoDB:', error);

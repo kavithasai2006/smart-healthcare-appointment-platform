@@ -180,12 +180,15 @@ const Appointments = () => {
           </div>
 
           <div className="profile-card-right">
+            <Link to="/profile" className="view-profile-link-btn" title="Open My Profile">
+              👤 Manage Full Profile
+            </Link>
             <button
               type="button"
               className="edit-profile-btn"
               onClick={() => setIsEditingProfile(!isEditingProfile)}
             >
-              {isEditingProfile ? '✕ Cancel Edit' : '✏️ Edit Profile'}
+              {isEditingProfile ? '✕ Cancel' : '✏️ Quick Edit'}
             </button>
           </div>
         </div>

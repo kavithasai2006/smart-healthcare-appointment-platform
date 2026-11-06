@@ -34,6 +34,76 @@ const userSchema = new mongoose.Schema(
       enum: ['patient', 'doctor', 'admin'],
       default: 'patient',
     },
+    age: {
+      type: Number,
+      default: null,
+      min: 0,
+      max: 130,
+    },
+    dateOfBirth: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    gender: {
+      type: String,
+      enum: ['Male', 'Female', 'Other', 'Prefer not to say', ''],
+      default: '',
+    },
+    state: {
+      type: String,
+      default: 'Andhra Pradesh',
+      trim: true,
+    },
+    district: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    city: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    village: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    address: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    pinCode: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    bloodGroup: {
+      type: String,
+      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', ''],
+      default: '',
+    },
+    emergencyContactName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    emergencyContactPhone: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    avatar: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    isProfileComplete: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

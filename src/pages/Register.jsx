@@ -64,9 +64,10 @@ const Register = () => {
       const result = await register(fullName, email, password, phone);
 
       if (result.success) {
-        setSuccessMsg(result.message);
-        alert(result.message);
-        navigate('/login');
+        setSuccessMsg('Account created successfully! Redirecting to complete your patient profile...');
+        setTimeout(() => {
+          navigate('/profile?new=true');
+        }, 800);
       } else {
         setError(result.message);
       }

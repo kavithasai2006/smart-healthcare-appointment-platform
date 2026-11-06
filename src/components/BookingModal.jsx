@@ -47,6 +47,8 @@ const BookingModal = ({ doctor, isOpen, onClose, onBookingSuccess }) => {
         patientName: user.fullName || prev.patientName,
         email: user.email || prev.email,
         phone: user.phone || prev.phone,
+        age: user.age ? String(user.age) : prev.age,
+        gender: user.gender || prev.gender,
       }));
     }
   }, [user]);

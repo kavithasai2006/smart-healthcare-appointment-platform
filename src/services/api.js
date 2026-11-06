@@ -151,10 +151,17 @@ export const authApi = {
     return null;
   },
 
-  async updateProfile(fullName, phone) {
+  async getProfile() {
+    const res = await request('/auth/profile');
+    if (res.success) return res.data.user;
+    return null;
+  },
+
+  async updateProfile(dataOrName, phone) {
+    const payload = typeof dataOrName === 'object' ? dataOrName : { fullName: dataOrName, phone };
     const res = await request('/auth/profile', {
       method: 'PUT',
-      body: JSON.stringify({ fullName, phone }),
+      body: JSON.stringify(payload),
     });
     if (res.success && res.data.user) {
       setStorage('smartcareUser', JSON.stringify(res.data.user));
@@ -186,14 +193,17 @@ export const hospitalApi = {
   async getHospitals(location = '') {
     const endpoint = location ? `/hospitals?location=${encodeURIComponent(location)}` : '/hospitals';
     const res = await request(endpoint);
-    if (res.success && Array.isArray(res.data.data)) {
-      return res.data.data.map((h) => h.name);
+    if (res.success) {
+      const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      if (Array.isArray(list)) {
+        return list.map((h) => (typeof h === 'string' ? h : h.name));
+      }
     }
-    // Fallback
+    // Fallback only if offline
     if (location && hospitalsByLocation[location]) {
       return hospitalsByLocation[location];
     }
-    return Object.values(hospitalsByLocation).flat();
+    return [];
   },
 
   async getHospitalListWithDetails(location = '') {
@@ -350,10 +360,14 @@ export const appointmentApi = {
     if (res.success && Array.isArray(res.data.data)) {
       return res.data.data.map((apt) => ({
         id: apt.id || apt._id,
-        doctor: apt.doctor,
+        _id: apt.id || apt._id,
+        doctor: apt.doctorName || apt.doctor,
+        doctorName: apt.doctorName || apt.doctor,
         specialization: apt.specialization || 'Specialist',
-        hospital: apt.hospital,
-        location: apt.location,
+        hospital: apt.hospitalName || apt.hospital,
+        hospitalName: apt.hospitalName || apt.hospital,
+        location: apt.locationName || apt.location,
+        locationName: apt.locationName || apt.location,
         fee: apt.fee,
         patientName: apt.patient_name || apt.patientName,
         phone: apt.patient_phone || apt.patientPhone || apt.phone,
@@ -364,8 +378,10 @@ export const appointmentApi = {
         weight: apt.weight,
         bloodPressure: apt.blood_pressure || apt.bloodPressure,
         reason: apt.reason,
-        date: apt.appointment_date || apt.date,
-        time: apt.appointment_time || apt.time,
+        date: apt.appointment_date || apt.appointmentDate || apt.date,
+        appointmentDate: apt.appointment_date || apt.appointmentDate || apt.date,
+        time: apt.appointment_time || apt.appointmentTime || apt.time,
+        appointmentTime: apt.appointment_time || apt.appointmentTime || apt.time,
         status: apt.status || 'Confirmed',
         createdAt: apt.created_at || apt.createdAt,
       }));

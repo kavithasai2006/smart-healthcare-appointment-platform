@@ -40,6 +40,9 @@ export const AuthProvider = ({ children }) => {
   const register = async (fullName, email, password, phone = '') => {
     try {
       const res = await authApi.register(fullName, email, password, phone);
+      if (res.success && res.user) {
+        setUser(res.user);
+      }
       return res;
     } catch (error) {
       console.error('Registration error:', error);
@@ -67,6 +70,36 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Refresh profile from server
+  const refreshProfile = async () => {
+    try {
+      const profile = await authApi.getMe();
+      if (profile) {
+        setUser(profile);
+        localStorage.setItem('smartcareUser', JSON.stringify(profile));
+      }
+      return profile;
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+      return null;
+    }
+  };
+
+  // Update profile
+  const updateUserProfile = async (profileData) => {
+    try {
+      const res = await authApi.updateProfile(profileData);
+      if (res.success && res.user) {
+        setUser(res.user);
+        localStorage.setItem('smartcareUser', JSON.stringify(res.user));
+      }
+      return res;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return { success: false, message: 'Failed to update profile.' };
+    }
+  };
+
   // Logout user
   const logout = () => {
     authApi.logout();
@@ -74,7 +107,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, register, login, logout, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        register,
+        login,
+        logout,
+        loading,
+        refreshProfile,
+        updateUserProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
